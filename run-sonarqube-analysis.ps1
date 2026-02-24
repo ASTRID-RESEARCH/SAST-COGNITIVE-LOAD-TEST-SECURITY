@@ -135,48 +135,29 @@ function Get-SonarQubeToken {
 
 # Funcao para executar analise com SonarScanner
 function Start-SonarAnalysis {
-    param([string]$Token)
-    
     Write-Host "INFO: Iniciando analise de codigo..." -ForegroundColor $ColorInfo
     Write-Host ""
     
     # Caminho absoluto do projeto
     $absolutePath = (Resolve-Path $ProjectPath).Path
     
-    Write-Host "INFO: Executando analise com SonarScanner..." -ForegroundColor $ColorInfo
+    Write-Host "INFO: Executando analise com SonarScanner (modo local sem autenticacao)..." -ForegroundColor $ColorInfo
     Write-Host ""
     
-    # Preparar argumentos do Docker
-    if ($Token) {
-        $dockerArgs = @(
-            'run'
-            '--rm'
-            '--network', 'sast-cognitive-load-test-security_security-analysis'
-            '-v', "${absolutePath}:/usr/src"
-            'sonarsource/sonar-scanner-cli'
-            "-Dsonar.projectKey=$ProjectKey"
-            '-Dsonar.sources=.'
-            '-Dsonar.host.url=http://sonarqube:9000'
-            "-Dsonar.token=$Token"
-            '-Dsonar.exclusions=**/node_modules/**,**/dist/**,**/build/**,**/coverage/**,**/test/**,**/tests/**,**/*.spec.ts,**/*.spec.js,**/*.test.ts,**/*.test.js'
-            '-Dsonar.sourceEncoding=UTF-8'
-        )
-    }
-    else {
-        # Tentar sem autenticacao (modo force-authentication desabilitado)
-        $dockerArgs = @(
-            'run'
-            '--rm'
-            '--network', 'sast-cognitive-load-test-security_security-analysis'
-            '-v', "${absolutePath}:/usr/src"
-            'sonarsource/sonar-scanner-cli'
-            "-Dsonar.projectKey=$ProjectKey"
-            '-Dsonar.sources=.'
-            '-Dsonar.host.url=http://sonarqube:9000'
-            '-Dsonar.exclusions=**/node_modules/**,**/dist/**,**/build/**,**/coverage/**,**/test/**,**/tests/**,**/*.spec.ts,**/*.spec.js,**/*.test.ts,**/*.test.js'
-            '-Dsonar.sourceEncoding=UTF-8'
-        )
-    }
+    # Preparar argumentos do Docker - SEM autenticacao para ambiente local
+    $dockerArgs = @(
+        'run'
+        '--rm'
+        '--network', 'sast-cognitive-load-test-security_security-analysis'
+        '-v', "${absolutePath}:/usr/src"
+        'sonarsource/sonar-scanner-cli'
+        "-Dsonar.projectKey=$ProjectKey"
+        '-Dsonar.sources=.'
+        '-Dsonar.host.url=http://sonarqube:9000'
+        '-Dsonar.scm.disabled=true'
+        '-Dsonar.exclusions=**/node_modules/**,**/dist/**,**/build/**,**/coverage/**,**/test/**,**/tests/**,**/*.spec.ts,**/*.spec.js,**/*.test.ts,**/*.test.js'
+        '-Dsonar.sourceEncoding=UTF-8'
+    )
     
     # Executar SonarScanner em container Docker
     & docker $dockerArgs
@@ -216,6 +197,22 @@ if (-not (Test-Path $ProjectPath)) {
     exit 1
 }
 
+# Obter caminho absoluto do projeto
+$absolutePath = (Resolve-Path $ProjectPath).Path
+
+# Definir exclusoes para analise
+$exclusions = @(
+    '**/node_modules/**',
+    '**/dist/**',
+    '**/build/**',
+    '**/coverage/**',
+    '**/*.spec.ts',
+    '**/*.spec.js',
+    '**/test/**',
+    '**/*.test.ts',
+    '**/*.test.js'
+)
+
 # Verificar se SonarQube esta disponivel
 if (-not (Test-SonarQubeAvailable)) {
     Write-Host "ERROR: SonarQube nao esta disponivel!" -ForegroundColor $ColorError
@@ -223,14 +220,63 @@ if (-not (Test-SonarQubeAvailable)) {
     exit 1
 }
 
-# Inicializar projeto no SonarQube
+# Inicializar projeto no SonarQube (automatico com credenciais padrao)
 Initialize-SonarQubeProject | Out-Null
 
-# Gerar token de autenticacao
+# Gerar token de autenticacao (automatico com credenciais padrao)
 $token = Get-SonarQubeToken
 
 # Executar analise
-Start-SonarAnalysis -Token $token
+if ($null -ne $token) {
+    Write-Host "INFO: Executando analise com autenticacao..." -ForegroundColor $ColorInfo
+    
+    # Docker args com token
+    $dockerArgs = @(
+        'run', '--rm'
+        '--network', 'sast-cognitive-load-test-security_security-analysis'
+        '-v', "${absolutePath}:/usr/src"
+        'sonarsource/sonar-scanner-cli'
+        "-Dsonar.projectKey=$ProjectKey"
+        '-Dsonar.sources=.'
+        '-Dsonar.host.url=http://sonarqube:9000'
+        "-Dsonar.token=$token"
+        '-Dsonar.scm.disabled=true'
+        "-Dsonar.exclusions=$($exclusions -join ',')"
+        '-Dsonar.sourceEncoding=UTF-8'
+    )
+    
+    try {
+        & docker $dockerArgs
+        
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host ""
+            Write-Host "SUCCESS: Analise concluida com sucesso!" -ForegroundColor $ColorSuccess
+            Write-Host ""
+            Write-Host "INFO: Acesse o resultado em:" -ForegroundColor $ColorInfo
+            Write-Host "      $SonarQubeUrl/dashboard?id=$ProjectKey" -ForegroundColor $ColorInfo
+            Write-Host ""
+        }
+        else {
+            Write-Host ""
+            Write-Host "ERROR: Falha na execucao da analise!" -ForegroundColor $ColorError
+            Write-Host "INFO: Verifique se o SonarQube esta rodando e acessivel." -ForegroundColor $ColorWarning
+            Write-Host ""
+            exit 1
+        }
+    }
+    catch {
+        Write-Host ""
+        Write-Host "ERROR: Erro ao executar comando docker!" -ForegroundColor $ColorError
+        Write-Host "INFO: $_" -ForegroundColor $ColorWarning
+        Write-Host ""
+        exit 1
+    }
+}
+else {
+    Write-Host "ERROR: Nao foi possivel autenticar no SonarQube" -ForegroundColor $ColorError
+    Write-Host "INFO: Verifique as credenciais (padrao admin/admin)" -ForegroundColor $ColorWarning
+    exit 1
+}
 
 Write-Host ""
 Write-Host "INFO: Script finalizado." -ForegroundColor $ColorInfo

@@ -133,6 +133,65 @@ function Get-SonarQubeToken {
     }
 }
 
+# Funcao para clonar Juice Shop se nao existir
+function Initialize-JuiceShop {
+    if (-not (Test-Path $ProjectPath)) {
+        Write-Host "INFO: Diretorio do Juice Shop nao encontrado." -ForegroundColor $ColorInfo
+        Write-Host "INFO: Clonando repositorio do OWASP Juice Shop..." -ForegroundColor $ColorInfo
+        
+        try {
+            # Clonar repositorio (shallow clone para economia de espaço)
+            git clone --depth 1 https://github.com/juice-shop/juice-shop.git $ProjectPath
+            
+            if ($LASTEXITCODE -eq 0) {
+                Write-Host "SUCCESS: Repositorio clonado com sucesso!" -ForegroundColor $ColorSuccess
+                
+                # Criar arquivo de configuracao do SonarQube
+                $sonarConfigPath = Join-Path $ProjectPath "sonar-project.properties"
+                $sonarConfig = @"
+sonar.projectKey=juice-shop
+sonar.projectName=OWASP Juice Shop
+sonar.projectVersion=1.0
+sonar.sources=.
+sonar.exclusions=**/node_modules/**,**/dist/**,**/build/**,**/coverage/**,**/*.spec.ts,**/*.spec.js,**/test/**,**/*.test.ts,**/*.test.js
+sonar.sourceEncoding=UTF-8
+"@
+                Set-Content -Path $sonarConfigPath -Value $sonarConfig -Encoding UTF8
+                Write-Host "SUCCESS: Arquivo sonar-project.properties criado!" -ForegroundColor $ColorSuccess
+                return $true
+            }
+            else {
+                Write-Host "ERROR: Falha ao clonar repositorio!" -ForegroundColor $ColorError
+                return $false
+            }
+        }
+        catch {
+            Write-Host "ERROR: Erro ao clonar repositorio: $_" -ForegroundColor $ColorError
+            return $false
+        }
+    }
+    else {
+        Write-Host "INFO: Diretorio do Juice Shop encontrado." -ForegroundColor $ColorInfo
+        
+        # Verificar se arquivo sonar-project.properties existe
+        $sonarConfigPath = Join-Path $ProjectPath "sonar-project.properties"
+        if (-not (Test-Path $sonarConfigPath)) {
+            Write-Host "INFO: Criando arquivo sonar-project.properties..." -ForegroundColor $ColorInfo
+            $sonarConfig = @"
+sonar.projectKey=juice-shop
+sonar.projectName=OWASP Juice Shop
+sonar.projectVersion=1.0
+sonar.sources=.
+sonar.exclusions=**/node_modules/**,**/dist/**,**/build/**,**/coverage/**,**/*.spec.ts,**/*.spec.js,**/test/**,**/*.test.ts,**/*.test.js
+sonar.sourceEncoding=UTF-8
+"@
+            Set-Content -Path $sonarConfigPath -Value $sonarConfig -Encoding UTF8
+            Write-Host "SUCCESS: Arquivo sonar-project.properties criado!" -ForegroundColor $ColorSuccess
+        }
+        return $true
+    }
+}
+
 # Funcao para executar analise com SonarScanner
 function Start-SonarAnalysis {
     Write-Host "INFO: Iniciando analise de codigo..." -ForegroundColor $ColorInfo
@@ -191,9 +250,9 @@ catch {
     exit 1
 }
 
-# Verificar se diretorio do projeto existe
-if (-not (Test-Path $ProjectPath)) {
-    Write-Host "ERROR: Diretorio do projeto nao encontrado: $ProjectPath" -ForegroundColor $ColorError
+# Inicializar Juice Shop (clonar se necessario)
+if (-not (Initialize-JuiceShop)) {
+    Write-Host "ERROR: Falha ao inicializar codigo fonte do Juice Shop!" -ForegroundColor $ColorError
     exit 1
 }
 

@@ -73,7 +73,7 @@ function Start-Environment {
         Write-Host "Acesse:" -ForegroundColor $ColorInfo
         Write-Host "  Juice Shop:  http://localhost:3000" -ForegroundColor $ColorSuccess
         Write-Host "  SonarQube:   http://localhost:9000" -ForegroundColor $ColorSuccess
-        Write-Host "               (Credenciais padrão: admin/admin)" -ForegroundColor $ColorWarning
+        Write-Host "               (Credenciais padrao: admin/admin)" -ForegroundColor $ColorWarning
         Write-Host ""
     }
     else {
@@ -100,7 +100,7 @@ function Stop-Environment {
 }
 
 function Remove-Environment {
-    Write-Host "[WARNING] Esta ação irá remover todos os containers e VOLUMES!" -ForegroundColor $ColorWarning
+    Write-Host "[WARNING] Esta acao ira remover todos os containers e VOLUMES!" -ForegroundColor $ColorWarning
     $confirm = Read-Host "Deseja continuar? (S/N)"
     
     if ($confirm -eq 'S' -or $confirm -eq 's') {
@@ -150,7 +150,7 @@ function Show-Status {
 
 function Show-Logs {
     if ($Service -eq 'all') {
-        Write-Host "[INFO] Exibindo logs de todos os serviços..." -ForegroundColor $ColorInfo
+        Write-Host "[INFO] Exibindo logs de todos os servicos..." -ForegroundColor $ColorInfo
         docker-compose logs --tail=50 -f
     }
     else {
@@ -161,9 +161,9 @@ function Show-Logs {
 
 function Show-Help {
     Write-Host "USO:" -ForegroundColor $ColorInfo
-    Write-Host "  .\manage-containers.ps1 -Action <ação> [-Service <serviço>]" -ForegroundColor $ColorSuccess
+    Write-Host "  .\manage-containers.ps1 -Action [acao] [-Service [servico]]" -ForegroundColor $ColorSuccess
     Write-Host ""
-    Write-Host "AÇÕES DISPONÍVEIS:" -ForegroundColor $ColorInfo
+    Write-Host "ACOES DISPONIVEIS:" -ForegroundColor $ColorInfo
     Write-Host "  Start    - Iniciar containers" -ForegroundColor $ColorSuccess
     Write-Host "  Stop     - Parar containers" -ForegroundColor $ColorSuccess
     Write-Host "  Restart  - Reiniciar containers" -ForegroundColor $ColorSuccess
@@ -172,7 +172,7 @@ function Show-Help {
     Write-Host "  Down     - Parar e remover containers e volumes" -ForegroundColor $ColorSuccess
     Write-Host "  Help     - Exibir esta ajuda" -ForegroundColor $ColorSuccess
     Write-Host ""
-    Write-Host "SERVIÇOS DISPONÍVEIS:" -ForegroundColor $ColorInfo
+    Write-Host "SERVICOS DISPONIVEIS:" -ForegroundColor $ColorInfo
     Write-Host "  all            - Todos os serviços (padrão)" -ForegroundColor $ColorSuccess
     Write-Host "  juice-shop     - Apenas Juice Shop" -ForegroundColor $ColorSuccess
     Write-Host "  sonarqube      - Apenas SonarQube" -ForegroundColor $ColorSuccess
@@ -189,7 +189,7 @@ function Show-Help {
 Show-Banner
 
 if (-not (Test-DockerRunning)) {
-    Write-Host "[ERROR] Docker não está em execução!" -ForegroundColor $ColorError
+    Write-Host "[ERROR] Docker nao esta em execucao!" -ForegroundColor $ColorError
     Write-Host "[INFO] Inicie o Docker Desktop e tente novamente." -ForegroundColor $ColorWarning
     exit 1
 }

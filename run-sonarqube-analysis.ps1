@@ -1,47 +1,54 @@
+# Script para executar analise do SonarQube no codigo do Juice Shop
+# Versao: 1.0 - Encoding: UTF-8 sem BOM
+
 <#
 .SYNOPSIS
-    Script para executar análise do SonarQube no código do Juice Shop
+    Script para executar analise do SonarQube no codigo do Juice Shop
 
 .DESCRIPTION
-    Este script automatiza a execução da análise de código estático do
+    Este script automatiza a execucao da analise de codigo estatico do
     OWASP Juice Shop usando SonarQube Scanner em container Docker.
 
 .EXAMPLE
     .\run-sonarqube-analysis.ps1
 
 .NOTES
-    Pré-requisitos:
+    Pre-requisitos:
     - SonarQube deve estar rodando (use .\manage-containers.ps1 -Action Start)
-    - Docker Desktop deve estar em execução
+    - Docker Desktop deve estar em execucao
 #>
 
 [CmdletBinding()]
 param()
 
+# Cores para output
 $ColorSuccess = 'Green'
 $ColorError = 'Red'
 $ColorWarning = 'Yellow'
 $ColorInfo = 'Cyan'
 
+# Configuracoes
 $SonarQubeUrl = "http://localhost:9000"
 $SonarQubeUser = "admin"
 $SonarQubePass = "admin"
 $ProjectKey = "juice-shop"
 $ProjectPath = ".\juice-shop"
 
+# Funcao para exibir banner
 function Show-Banner {
     Write-Host ""
-    Write-Host "╔═══════════════════════════════════════════════════╗" -ForegroundColor $ColorInfo
-    Write-Host "║   Análise de Código com SonarQube                 ║" -ForegroundColor $ColorInfo
-    Write-Host "║   OWASP Juice Shop                                ║" -ForegroundColor $ColorInfo
-    Write-Host "╚═══════════════════════════════════════════════════╝" -ForegroundColor $ColorInfo
+    Write-Host "============================================================" -ForegroundColor $ColorInfo
+    Write-Host "   Analise de Codigo com SonarQube                          " -ForegroundColor $ColorInfo
+    Write-Host "   OWASP Juice Shop                                         " -ForegroundColor $ColorInfo
+    Write-Host "============================================================" -ForegroundColor $ColorInfo
     Write-Host ""
 }
 
+# Funcao para verificar se SonarQube esta disponivel
 function Test-SonarQubeAvailable {
     param([int]$MaxAttempts = 30)
     
-    Write-Host "[INFO] Verificando disponibilidade do SonarQube..." -ForegroundColor $ColorInfo
+    Write-Host "INFO: Verificando disponibilidade do SonarQube..." -ForegroundColor $ColorInfo
     
     for ($i = 1; $i -le $MaxAttempts; $i++) {
         try {
@@ -49,12 +56,12 @@ function Test-SonarQubeAvailable {
             $status = ($response.Content | ConvertFrom-Json).status
             
             if ($status -eq 'UP') {
-                Write-Host "[SUCCESS] SonarQube está disponível!" -ForegroundColor $ColorSuccess
+                Write-Host "SUCCESS: SonarQube esta disponivel!" -ForegroundColor $ColorSuccess
                 return $true
             }
         }
         catch {
-            Write-Host "[WAIT] Aguardando SonarQube iniciar... (tentativa $i/$MaxAttempts)" -ForegroundColor $ColorWarning
+            Write-Host "WAIT: Aguardando SonarQube iniciar... (tentativa $i/$MaxAttempts)" -ForegroundColor $ColorWarning
             Start-Sleep -Seconds 10
         }
     }
@@ -62,78 +69,89 @@ function Test-SonarQubeAvailable {
     return $false
 }
 
+# Funcao para criar projeto no SonarQube (se nao existir)
 function Initialize-SonarQubeProject {
-    Write-Host "[INFO] Verificando projeto no SonarQube..." -ForegroundColor $ColorInfo
+    Write-Host "INFO: Verificando projeto no SonarQube..." -ForegroundColor $ColorInfo
     
     try {
+        # Codificar credenciais em Base64 para autenticacao basica
         $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("$($SonarQubeUser):$($SonarQubePass)"))
         $headers = @{
             Authorization = "Basic $base64AuthInfo"
         }
         
+        # Verificar se projeto existe
         $projectUrl = "$SonarQubeUrl/api/projects/search?projects=$ProjectKey"
         $response = Invoke-RestMethod -Uri $projectUrl -Headers $headers -Method Get -ErrorAction Stop
         
         if ($response.components.Count -eq 0) {
-            Write-Host "[INFO] Criando projeto no SonarQube..." -ForegroundColor $ColorInfo
+            Write-Host "INFO: Criando projeto no SonarQube..." -ForegroundColor $ColorInfo
             
+            # Criar projeto
             $createUrl = "$SonarQubeUrl/api/projects/create?project=$ProjectKey&name=OWASP%20Juice%20Shop"
             Invoke-RestMethod -Uri $createUrl -Headers $headers -Method Post -ErrorAction Stop | Out-Null
             
-            Write-Host "[SUCCESS] Projeto criado com sucesso!" -ForegroundColor $ColorSuccess
+            Write-Host "SUCCESS: Projeto criado com sucesso!" -ForegroundColor $ColorSuccess
         }
         else {
-            Write-Host "[INFO] Projeto já existe no SonarQube." -ForegroundColor $ColorInfo
+            Write-Host "INFO: Projeto ja existe no SonarQube." -ForegroundColor $ColorInfo
         }
         
         return $true
     }
     catch {
-        Write-Host "[WARNING] Não foi possível verificar/criar projeto automaticamente." -ForegroundColor $ColorWarning
-        Write-Host "[INFO] O projeto será criado automaticamente na primeira análise." -ForegroundColor $ColorInfo
+        Write-Host "WARNING: Nao foi possivel verificar/criar projeto automaticamente." -ForegroundColor $ColorWarning
+        Write-Host "INFO: O projeto sera criado automaticamente na primeira analise." -ForegroundColor $ColorInfo
         return $true
     }
 }
 
+# Funcao para gerar token de acesso
 function Get-SonarQubeToken {
-    Write-Host "[INFO] Gerando token de autenticação..." -ForegroundColor $ColorInfo
+    Write-Host "INFO: Gerando token de autenticacao..." -ForegroundColor $ColorInfo
     
     try {
+        # Codificar credenciais em Base64
         $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("$($SonarQubeUser):$($SonarQubePass)"))
         $headers = @{
             Authorization = "Basic $base64AuthInfo"
         }
         
+        # Nome unico para o token
         $tokenName = "juice-shop-analysis-$(Get-Date -Format 'yyyyMMddHHmmss')"
         
+        # Gerar token (API antiga para compatibilidade)
         $tokenUrl = "$SonarQubeUrl/api/user_tokens/generate?name=$tokenName"
         $response = Invoke-RestMethod -Uri $tokenUrl -Headers $headers -Method Post -ErrorAction Stop
         
-        Write-Host "[SUCCESS] Token gerado com sucesso!" -ForegroundColor $ColorSuccess
+        Write-Host "SUCCESS: Token gerado com sucesso!" -ForegroundColor $ColorSuccess
         return $response.token
     }
     catch {
-        Write-Host "[WARNING] Não foi possível gerar token. Tentando análise sem autenticação..." -ForegroundColor $ColorWarning
+        Write-Host "WARNING: Nao foi possivel gerar token. Tentando analise sem autenticacao..." -ForegroundColor $ColorWarning
         return $null
     }
 }
 
+# Funcao para executar analise com SonarScanner
 function Start-SonarAnalysis {
     param([string]$Token)
     
-    Write-Host "[INFO] Iniciando análise de código..." -ForegroundColor $ColorInfo
+    Write-Host "INFO: Iniciando analise de codigo..." -ForegroundColor $ColorInfo
     Write-Host ""
     
+    # Caminho absoluto do projeto
     $absolutePath = (Resolve-Path $ProjectPath).Path
     
-    Write-Host "[INFO] Executando análise com SonarScanner..." -ForegroundColor $ColorInfo
+    Write-Host "INFO: Executando analise com SonarScanner..." -ForegroundColor $ColorInfo
     Write-Host ""
     
+    # Preparar argumentos do Docker
     if ($Token) {
         $dockerArgs = @(
             'run'
             '--rm'
-            '--network', 'wp-survey_security-analysis'
+            '--network', 'sast-cognitive-load-test-security_security-analysis'
             '-v', "${absolutePath}:/usr/src"
             'sonarsource/sonar-scanner-cli'
             "-Dsonar.projectKey=$ProjectKey"
@@ -145,10 +163,11 @@ function Start-SonarAnalysis {
         )
     }
     else {
+        # Tentar sem autenticacao (modo force-authentication desabilitado)
         $dockerArgs = @(
             'run'
             '--rm'
-            '--network', 'wp-survey_security-analysis'
+            '--network', 'sast-cognitive-load-test-security_security-analysis'
             '-v', "${absolutePath}:/usr/src"
             'sonarsource/sonar-scanner-cli'
             "-Dsonar.projectKey=$ProjectKey"
@@ -159,11 +178,12 @@ function Start-SonarAnalysis {
         )
     }
     
+    # Executar SonarScanner em container Docker
     & docker $dockerArgs
     
     if ($LASTEXITCODE -eq 0) {
         Write-Host ""
-        Write-Host "[SUCCESS] Análise concluída com sucesso!" -ForegroundColor $ColorSuccess
+        Write-Host "SUCCESS: Analise concluida com sucesso!" -ForegroundColor $ColorSuccess
         Write-Host ""
         Write-Host "Acesse os resultados em:" -ForegroundColor $ColorInfo
         Write-Host "  $SonarQubeUrl/dashboard?id=$ProjectKey" -ForegroundColor $ColorSuccess
@@ -171,40 +191,47 @@ function Start-SonarAnalysis {
     }
     else {
         Write-Host ""
-        Write-Host "[ERROR] Falha na execução da análise!" -ForegroundColor $ColorError
-        Write-Host "[INFO] Verifique se o SonarQube está rodando e acessível." -ForegroundColor $ColorWarning
+        Write-Host "ERROR: Falha na execucao da analise!" -ForegroundColor $ColorError
+        Write-Host "INFO: Verifique se o SonarQube esta rodando e acessivel." -ForegroundColor $ColorWarning
         exit 1
     }
 }
 
+# Main
 Show-Banner
 
+# Verificar se Docker esta rodando
 try {
     docker ps | Out-Null
 }
 catch {
-    Write-Host "[ERROR] Docker não está em execução!" -ForegroundColor $ColorError
-    Write-Host "[INFO] Inicie o Docker Desktop e tente novamente." -ForegroundColor $ColorWarning
+    Write-Host "ERROR: Docker nao esta em execucao!" -ForegroundColor $ColorError
+    Write-Host "INFO: Inicie o Docker Desktop e tente novamente." -ForegroundColor $ColorWarning
     exit 1
 }
 
+# Verificar se diretorio do projeto existe
 if (-not (Test-Path $ProjectPath)) {
-    Write-Host "[ERROR] Diretório do projeto não encontrado: $ProjectPath" -ForegroundColor $ColorError
+    Write-Host "ERROR: Diretorio do projeto nao encontrado: $ProjectPath" -ForegroundColor $ColorError
     exit 1
 }
 
+# Verificar se SonarQube esta disponivel
 if (-not (Test-SonarQubeAvailable)) {
-    Write-Host "[ERROR] SonarQube não está disponível!" -ForegroundColor $ColorError
-    Write-Host "[INFO] Execute: .\manage-containers.ps1 -Action Start" -ForegroundColor $ColorWarning
+    Write-Host "ERROR: SonarQube nao esta disponivel!" -ForegroundColor $ColorError
+    Write-Host "INFO: Execute: .\manage-containers.ps1 -Action Start" -ForegroundColor $ColorWarning
     exit 1
 }
 
+# Inicializar projeto no SonarQube
 Initialize-SonarQubeProject | Out-Null
 
+# Gerar token de autenticacao
 $token = Get-SonarQubeToken
 
+# Executar analise
 Start-SonarAnalysis -Token $token
 
 Write-Host ""
-Write-Host "[INFO] Script finalizado." -ForegroundColor $ColorInfo
+Write-Host "INFO: Script finalizado." -ForegroundColor $ColorInfo
 Write-Host ""

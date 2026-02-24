@@ -1,13 +1,19 @@
+# Script de automacao para gerenciar containers do Juice Shop e SonarQube
+# Versao: 1.0 - Encoding: UTF-8 sem BOM
+
 <#
 .SYNOPSIS
-    Script de automação para gerenciar containers do Juice Shop e SonarQube
+    Script de automacao para gerenciar containers do Juice Shop e SonarQube
 
 .DESCRIPTION
     Este script automatiza o gerenciamento dos containers Docker do ambiente
-    de análise de segurança (OWASP Juice Shop + SonarQube).
+    de analise de seguranca (OWASP Juice Shop + SonarQube).
 
 .PARAMETER Action
-    Ação a ser executada: Start, Stop, Restart, Status, Logs, Down
+    Acao a ser executada: Start, Stop, Restart, Status, Logs, Down
+
+.PARAMETER Service
+    Servico especifico: juice-shop, sonarqube, sonarqube-db, all (padrao)
 
 .EXAMPLE
     .\manage-containers.ps1 -Action Start
@@ -15,8 +21,8 @@
     .\manage-containers.ps1 -Action Logs -Service juice-shop
 
 .NOTES
-    Autor: Agente de Automação
-    Requer: Docker Desktop instalado e em execução
+    Autor: Agente de Automacao
+    Requer: Docker Desktop instalado e em execucao
 #>
 
 [CmdletBinding()]
@@ -36,6 +42,7 @@ $ColorError = 'Red'
 $ColorWarning = 'Yellow'
 $ColorInfo = 'Cyan'
 
+# Funcao para verificar se Docker esta rodando
 function Test-DockerRunning {
     try {
         $null = docker ps 2>&1
@@ -46,17 +53,19 @@ function Test-DockerRunning {
     }
 }
 
+# Funcao para exibir banner
 function Show-Banner {
     Write-Host ""
-    Write-Host "╔═══════════════════════════════════════════════════╗" -ForegroundColor $ColorInfo
-    Write-Host "║   Gerenciador de Containers - Security Analysis  ║" -ForegroundColor $ColorInfo
-    Write-Host "║   Juice Shop + SonarQube                          ║" -ForegroundColor $ColorInfo
-    Write-Host "╚═══════════════════════════════════════════════════╝" -ForegroundColor $ColorInfo
+    Write-Host "============================================================" -ForegroundColor $ColorInfo
+    Write-Host "   Gerenciador de Containers - Security Analysis           " -ForegroundColor $ColorInfo
+    Write-Host "   Juice Shop + SonarQube                                   " -ForegroundColor $ColorInfo
+    Write-Host "============================================================" -ForegroundColor $ColorInfo
     Write-Host ""
 }
 
+# Funcao para iniciar ambiente
 function Start-Environment {
-    Write-Host "[INFO] Iniciando containers..." -ForegroundColor $ColorInfo
+    Write-Host "INFO: Iniciando containers..." -ForegroundColor $ColorInfo
     
     if ($Service -eq 'all') {
         docker-compose up -d
@@ -66,9 +75,9 @@ function Start-Environment {
     }
     
     if ($LASTEXITCODE -eq 0) {
-        Write-Host "[SUCCESS] Containers iniciados com sucesso!" -ForegroundColor $ColorSuccess
+        Write-Host "SUCCESS: Containers iniciados com sucesso!" -ForegroundColor $ColorSuccess
         Write-Host ""
-        Write-Host "Aguarde alguns instantes para os serviços ficarem prontos..." -ForegroundColor $ColorWarning
+        Write-Host "Aguarde alguns instantes para os servicos ficarem prontos..." -ForegroundColor $ColorWarning
         Write-Host ""
         Write-Host "Acesse:" -ForegroundColor $ColorInfo
         Write-Host "  Juice Shop:  http://localhost:3000" -ForegroundColor $ColorSuccess
@@ -77,12 +86,13 @@ function Start-Environment {
         Write-Host ""
     }
     else {
-        Write-Host "[ERROR] Falha ao iniciar containers!" -ForegroundColor $ColorError
+        Write-Host "ERROR: Falha ao iniciar containers!" -ForegroundColor $ColorError
     }
 }
 
+# Funcao para parar ambiente
 function Stop-Environment {
-    Write-Host "[INFO] Parando containers..." -ForegroundColor $ColorInfo
+    Write-Host "INFO: Parando containers..." -ForegroundColor $ColorInfo
     
     if ($Service -eq 'all') {
         docker-compose stop
@@ -92,35 +102,37 @@ function Stop-Environment {
     }
     
     if ($LASTEXITCODE -eq 0) {
-        Write-Host "[SUCCESS] Containers parados com sucesso!" -ForegroundColor $ColorSuccess
+        Write-Host "SUCCESS: Containers parados com sucesso!" -ForegroundColor $ColorSuccess
     }
     else {
-        Write-Host "[ERROR] Falha ao parar containers!" -ForegroundColor $ColorError
+        Write-Host "ERROR: Falha ao parar containers!" -ForegroundColor $ColorError
     }
 }
 
+# Funcao para remover containers e volumes
 function Remove-Environment {
-    Write-Host "[WARNING] Esta acao ira remover todos os containers e VOLUMES!" -ForegroundColor $ColorWarning
+    Write-Host "WARNING: Esta acao ira remover todos os containers e VOLUMES!" -ForegroundColor $ColorWarning
     $confirm = Read-Host "Deseja continuar? (S/N)"
     
     if ($confirm -eq 'S' -or $confirm -eq 's') {
-        Write-Host "[INFO] Removendo containers e volumes..." -ForegroundColor $ColorInfo
+        Write-Host "INFO: Removendo containers e volumes..." -ForegroundColor $ColorInfo
         docker-compose down -v
         
         if ($LASTEXITCODE -eq 0) {
-            Write-Host "[SUCCESS] Ambiente removido com sucesso!" -ForegroundColor $ColorSuccess
+            Write-Host "SUCCESS: Ambiente removido com sucesso!" -ForegroundColor $ColorSuccess
         }
         else {
-            Write-Host "[ERROR] Falha ao remover ambiente!" -ForegroundColor $ColorError
+            Write-Host "ERROR: Falha ao remover ambiente!" -ForegroundColor $ColorError
         }
     }
     else {
-        Write-Host "[INFO] Operação cancelada." -ForegroundColor $ColorInfo
+        Write-Host "INFO: Operacao cancelada." -ForegroundColor $ColorInfo
     }
 }
 
+# Funcao para reiniciar ambiente
 function Restart-Environment {
-    Write-Host "[INFO] Reiniciando containers..." -ForegroundColor $ColorInfo
+    Write-Host "INFO: Reiniciando containers..." -ForegroundColor $ColorInfo
     
     if ($Service -eq 'all') {
         docker-compose restart
@@ -130,38 +142,41 @@ function Restart-Environment {
     }
     
     if ($LASTEXITCODE -eq 0) {
-        Write-Host "[SUCCESS] Containers reiniciados com sucesso!" -ForegroundColor $ColorSuccess
+        Write-Host "SUCCESS: Containers reiniciados com sucesso!" -ForegroundColor $ColorSuccess
     }
     else {
-        Write-Host "[ERROR] Falha ao reiniciar containers!" -ForegroundColor $ColorError
+        Write-Host "ERROR: Falha ao reiniciar containers!" -ForegroundColor $ColorError
     }
 }
 
+# Funcao para exibir status
 function Show-Status {
-    Write-Host "[INFO] Status dos containers:" -ForegroundColor $ColorInfo
+    Write-Host "INFO: Status dos containers:" -ForegroundColor $ColorInfo
     Write-Host ""
     
     docker-compose ps
     
     Write-Host ""
-    Write-Host "[INFO] Uso de recursos:" -ForegroundColor $ColorInfo
-    docker stats --no-stream --format "table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.NetIO}}" $(docker-compose ps -q)
+    Write-Host "INFO: Uso de recursos:" -ForegroundColor $ColorInfo
+    docker stats --no-stream --format "table {{.Name}}`t{{.CPUPerc}}`t{{.MemUsage}}`t{{.NetIO}}" $(docker-compose ps -q)
 }
 
+# Funcao para exibir logs
 function Show-Logs {
     if ($Service -eq 'all') {
-        Write-Host "[INFO] Exibindo logs de todos os servicos..." -ForegroundColor $ColorInfo
+        Write-Host "INFO: Exibindo logs de todos os servicos..." -ForegroundColor $ColorInfo
         docker-compose logs --tail=50 -f
     }
     else {
-        Write-Host "[INFO] Exibindo logs do serviço: $Service" -ForegroundColor $ColorInfo
+        Write-Host "INFO: Exibindo logs do servico: $Service" -ForegroundColor $ColorInfo
         docker-compose logs --tail=50 -f $Service
     }
 }
 
+# Funcao para exibir ajuda
 function Show-Help {
     Write-Host "USO:" -ForegroundColor $ColorInfo
-    Write-Host "  .\manage-containers.ps1 -Action [acao] [-Service [servico]]" -ForegroundColor $ColorSuccess
+    Write-Host "  .\manage-containers.ps1 -Action ACAO -Service SERVICO" -ForegroundColor $ColorSuccess
     Write-Host ""
     Write-Host "ACOES DISPONIVEIS:" -ForegroundColor $ColorInfo
     Write-Host "  Start    - Iniciar containers" -ForegroundColor $ColorSuccess
@@ -173,7 +188,7 @@ function Show-Help {
     Write-Host "  Help     - Exibir esta ajuda" -ForegroundColor $ColorSuccess
     Write-Host ""
     Write-Host "SERVICOS DISPONIVEIS:" -ForegroundColor $ColorInfo
-    Write-Host "  all            - Todos os serviços (padrão)" -ForegroundColor $ColorSuccess
+    Write-Host "  all            - Todos os servicos (padrao)" -ForegroundColor $ColorSuccess
     Write-Host "  juice-shop     - Apenas Juice Shop" -ForegroundColor $ColorSuccess
     Write-Host "  sonarqube      - Apenas SonarQube" -ForegroundColor $ColorSuccess
     Write-Host "  sonarqube-db   - Apenas PostgreSQL" -ForegroundColor $ColorSuccess
@@ -186,14 +201,17 @@ function Show-Help {
     Write-Host ""
 }
 
+# Main
 Show-Banner
 
+# Verificar se Docker esta rodando
 if (-not (Test-DockerRunning)) {
-    Write-Host "[ERROR] Docker nao esta em execucao!" -ForegroundColor $ColorError
-    Write-Host "[INFO] Inicie o Docker Desktop e tente novamente." -ForegroundColor $ColorWarning
+    Write-Host "ERROR: Docker nao esta em execucao!" -ForegroundColor $ColorError
+    Write-Host "INFO: Inicie o Docker Desktop e tente novamente." -ForegroundColor $ColorWarning
     exit 1
 }
 
+# Executar acao solicitada
 switch ($Action) {
     'Start'   { Start-Environment }
     'Stop'    { Stop-Environment }

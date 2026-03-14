@@ -40,8 +40,6 @@ Este comando irá:
 - Executar análise de código estático
 - Exibir link para visualizar resultados
 
-**✨ Totalmente automático!** Não requer configuração manual.
-
 ## 📖 Comandos Disponíveis
 
 ### Gerenciamento de Containers
@@ -106,8 +104,6 @@ Os seguintes volumes são criados para persistir dados:
 - `sonarqube-data` - Dados do SonarQube
 - `sonarqube-logs` - Logs do SonarQube
 - `sonarqube-extensions` - Plugins do SonarQube
-
-**⚠️ Importante:** O comando `-Action Down` remove esses volumes permanentemente!
 
 ## 🌐 URLs de Acesso
 

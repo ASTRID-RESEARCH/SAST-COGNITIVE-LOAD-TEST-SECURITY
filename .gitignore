@@ -1,0 +1,16 @@
+# R
+.Rhistory
+.RData
+.Rproj.user/
+*.Rproj
+
+# Outputs (regenerados pelo script)
+output/figures/
+output/tables/
+
+# Dados sensíveis (commitar apenas se aprovado pelo comitê de ética)
+# data/
+
+# OS
+.DS_Store
+Thumbs.db
